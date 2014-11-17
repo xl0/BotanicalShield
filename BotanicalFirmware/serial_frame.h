@@ -17,8 +17,11 @@
 #define INFORMATION_FRAME 'i'
 #define PING_FRAME 'A'
 #define WRITE_MODE_FRAME 'w'
+#define WRITE_BOTANICAL_MODE_FRAME 'd'
 #define READ_MEMORY_FRAME 'r'
 #define READ_MEMORY_BYTE_FRAME 'R'
+#define READ_BOTANICAL_MEMORY_FRAME 'c'
+#define READ_BOTANICAL_MEMORY_BYTE_FRAME 'C'
 #define ERASE_MEMORY_FRAME 'e'
 #define CHECK_MEMORY_FRAME 'x'
 #define CHECK_PROSSING_TRASNFERT_FRAME 't'
@@ -92,8 +95,11 @@ char sf_getFrame(void)
         case INFORMATION_FRAME:
         case PING_FRAME:
         case WRITE_MODE_FRAME:
+        case WRITE_BOTANICAL_MODE_FRAME:
         case READ_MEMORY_FRAME:
         case READ_MEMORY_BYTE_FRAME:
+        case READ_BOTANICAL_MEMORY_FRAME:
+        case READ_BOTANICAL_MEMORY_BYTE_FRAME:
         case ERASE_MEMORY_FRAME:
         case QUIT_FRAME:
             break;

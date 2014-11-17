@@ -20,6 +20,8 @@ MPU6050 mpu;
 int16_t ax, ay, az; //acceleroscope axes
 int16_t gx, gy, gz; //gyroscope axes
 int16_t sampling_rate; //unity = Hz
+
+
 char acc_range;
 char gyro_range;
 } accelgyro;

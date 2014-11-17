@@ -184,6 +184,7 @@ info_packet_handler()
   INFO_packet_handler();
 }
 
+//packet handler for outputing on file
 void
 INFO_packet_handler()
 {
@@ -272,6 +273,12 @@ serialEvent(Serial p)
                 break;
             case 'I':
                 INFO_packet_handler();
+                break;
+            case 'c':  
+                live_botanical_packet_handler(); 
+                break; 
+            case 'C':
+                live_botanical_packet_handler();
                 break;
         }
         //println(serial_buffer[0]);

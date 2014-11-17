@@ -68,6 +68,7 @@ char frame_type;
 #define WRITE_MODE (LIVE_MODE + 1)
 #define LIVE_SERIAL_MODE (WRITE_MODE + 1)
 #define LIVE_BOTANICAL_MODE (LIVE_SERIAL_MODE + 1)
+#define WRITE_BOTANICAL_MODE (LIVE_BOTANICAL_MODE+1)
 char run_mode;
 char is_write_mode;
 char button;
@@ -141,7 +142,8 @@ mode_handler(void)
 
     if((run_mode == LIVE_MODE) || 
        (run_mode == WRITE_MODE) ||
-       (run_mode == LIVE_SERIAL_MODE)||(run_mode == LIVE_BOTANICAL_MODE))
+       (run_mode == LIVE_SERIAL_MODE)||(run_mode == LIVE_BOTANICAL_MODE)||
+       (run_mode == WRITE_BOTANICAL_MODE) )
     {
         time0 = micros();
         accelgyro_get();
@@ -179,6 +181,16 @@ mode_handler(void)
                 }
                 flash_write_accelgyro();
                 break;
+            
+            case WRITE_BOTANICAL_MODE:
+                if(!is_write_mode)
+                {
+                    is_write_mode = 1;
+                    digitalWrite(4,1);
+                    flash_write_mode_start();
+                }
+                flash_write_botanical();
+                break;    
         }
 
         delay_time = 1000000/accelgyro.sampling_rate;
@@ -220,6 +232,10 @@ frame_handler(void)
 
         case WRITE_MODE_FRAME:
             run_mode = WRITE_MODE;
+            break;
+        case WRITE_BOTANICAL_MODE_FRAME:
+            run_mode = WRITE_BOTANICAL_MODE;  
+            break;
         case ERASE_MEMORY_FRAME:
             flash_erase();
             break;
@@ -228,7 +244,17 @@ frame_handler(void)
             flash_read_accelgyro(CHAR_MODE);
             run_mode = STANDBY_MODE;
             break;
-
+            
+        case READ_BOTANICAL_MEMORY_FRAME:
+            flash_read_botanical(CHAR_MODE);
+            run_mode = STANDBY_MODE;
+            break; 
+            
+        case READ_BOTANICAL_MEMORY_BYTE_FRAME:
+            flash_read_botanical(CHAR_MODE);
+            run_mode = STANDBY_MODE;
+            break; 
+            
         case READ_MEMORY_BYTE_FRAME:
             flash_read_accelgyro(BYTE_MODE);
             run_mode = STANDBY_MODE;
@@ -287,7 +313,9 @@ loop()
     if(digitalRead(8) == HIGH && button == 0)
     {
         button = 1;
-        frame_type = WRITE_MODE_FRAME;
+        //frame_type = WRITE_MODE_FRAME;
+        Serial.println("botanical write mofo !");
+        frame_type = WRITE_BOTANICAL_MODE_FRAME;
     }
     else if(digitalRead(8) == LOW && button == 1)
     {

@@ -469,7 +469,7 @@ void WriteMode(int value)
 
 void ReadMode(int value)
 {
-    myPort.write('R');
+    myPort.write('c'); //old R
 }
 
 void FileOut()

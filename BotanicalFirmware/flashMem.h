@@ -11,7 +11,8 @@
 #define BYTE_MODE 1
 
 char itoa_buff[20];
-
+int16_t light_value;
+int temperature;
 void 
 divide_int_print(int16_t value)
 {
@@ -69,9 +70,9 @@ print_botanical(int mode)
         serial_print_str(itoa(accelgyro.gy,itoa_buff,10));
         serial_print_char(' ');
         serial_println_str(itoa(accelgyro.gz,itoa_buff,10));*/
-        int c=tempsensor.readTempC();
+        temperature=tempsensor.readTempC();
         divide_int_print(event.light);
-        divide_int_print(c);
+        divide_int_print(temperature);
         //divide_int_print(accelgyro.az);
         //divide_int_print(accelgyro.gx);
         //divide_int_print(accelgyro.gy);
@@ -275,13 +276,20 @@ void
 flash_write_botanical(void)
 {   
     int tmp_light_value=event.light;
-    FLASH_WRITE_INT16(tmp_light_value);
-    int c=tempsensor.readTempC();
-    SPI.transfer(c);
-    flashMem.offset += 3;
+    FLASH_WRITE_INT16(light_value);
+    temperature=tempsensor.readTempC();
+    SPI.transfer(temperature);
+    //dummy value to get even numb of bits
+    SPI.transfer(temperature);
+    flashMem.offset += 4;
     if(flashMem.offset == 528) flash_write_buffer(); 
 }
-
+void
+read_botanical(void)
+{
+    FLASH_READ_INT16(light_value);
+    temperature= SPI.transfer(0xff);
+}
 
 void
 read_accelgyro(void)
@@ -353,5 +361,63 @@ flash_read_accelgyro(int mode)
         delay(10);
     }
 }
+void
+flash_read_botanical(int mode)
+{
+    if(flash_read_meta_data())
+        { Serial.println("M corrupted memory"); return; }
+    serial_print_char('i');
+    serial_print_char(' ');
+    serial_print_int((int)flashMem.acce_scale);
+    serial_print_char(' ');
+    serial_print_int((int)flashMem.gyro_scale);
+    serial_print_char(' ');
+    serial_print_int(flashMem.sampling);
+    serial_print_char(' ');
+    serial_print_int(flashMem.Hour);
+    serial_print_char(' ');
+    serial_print_int(flashMem.Minute);
+    serial_print_char(' ');
+    serial_print_int(flashMem.Second);
+    serial_print_char(' ');
+    serial_print_int(flashMem.Day);
+    serial_print_char(' ');
+    serial_print_int(flashMem.DayofWeek);
+    serial_print_char(' ');
+    serial_print_int(flashMem.Month);
+    serial_print_char(' ');
+    serial_println_int(flashMem.Year);
+    int i, j;
+    flashMem.page = (flashMem.n*4)/528;
 
+    //start from page 1 because page 0 is used to store variables
+    for(i = 1; i <= flashMem.page; i++)
+    {
+        flashMem.dataflash.pageToBuffer(i,0);
+        flashMem.dataflash.bufferRead(0,0);
+        for(j = 0; j < 528; j+=12)
+        {
+            read_botanical();
+            if(mode == CHAR_MODE)
+              serial_print_str("b ");
+            else
+              serial_print_str("B ");
+            print_botanical(mode);
+            if(used_serial)delay(30);
+        }
+    }
+    flashMem.dataflash.pageToBuffer(i,0);
+    flashMem.dataflash.bufferRead(0,0);
+    j = (flashMem.n*4)%528;
+    for(i = 1; i < j; i+=4)
+    {
+        if(mode == CHAR_MODE)
+          serial_print_str("b ");
+        else
+          serial_print_str("B ");
+        read_botanical();
+        print_botanical(mode);
+        delay(10);
+    }
+}
 #endif
