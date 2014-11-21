@@ -46,6 +46,9 @@ THE SOFTWARE.
 #include <SPI.h>
 #include "DataFlash.h"
 #include <EEPROM.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
+#include <avr/boot.h>
 
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
 // for both classes must be in the include path of your project
@@ -55,7 +58,7 @@ THE SOFTWARE.
 #include "accelgyro.h"
 #include "flashMem.h"
 #include "serial_frame.h"
-
+#include "sleep.h"
 /* Global variables */
 
 #define MY_ID 0
@@ -82,6 +85,11 @@ startupDelay()
     if(startupTime < 3000) delay(3000 - startupTime);
 }
 
+//watchdog timer routine
+ISR(WDT_vect)
+{
+ 
+}
 void 
 setup(void)
 {
@@ -187,18 +195,29 @@ mode_handler(void)
                 {
                     is_write_mode = 1;
                     digitalWrite(4,1);
+                    delay(300);
                     flash_write_mode_start();
+                    digitalWrite(4,0);
+                    ADCSRA &= ~(1<<ADEN); //Disable ADC
+                    ACSR = (1<<ACD); //Disable the analog comparator
+                    setup_watchdog(8);
                 }
+                Serial.flush();
+                set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+                sleep_enable();
+                sleep_cpu();
+                sleep_disable();
                 flash_write_botanical();
                 break;    
         }
-
+        if(!is_write_mode){
         delay_time = 1000000/accelgyro.sampling_rate;
         time1 = micros();
         if((time1 - time0) < delay_time) {
             delayMicroseconds((delay_time - (time1 - time0)));
             //delay((delay_time- (time1 - time0))/1000);
         }
+       }
     }
 }
 
@@ -319,6 +338,7 @@ loop()
     }
     else if(digitalRead(8) == LOW && button == 1)
     {
+        sleep_disable();
         button = 0;
         frame_type = QUIT_FRAME;
     }
