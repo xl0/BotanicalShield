@@ -16,14 +16,13 @@
 #define GYRO_2000 3
 
 struct Accelgyro {
-MPU6050 mpu;
-int16_t ax, ay, az; //acceleroscope axes
-int16_t gx, gy, gz; //gyroscope axes
-int16_t sampling_rate; //unity = Hz
+	MPU6050 mpu;
+	int16_t ax, ay, az;	//acceleroscope axes
+	int16_t gx, gy, gz;	//gyroscope axes
+	int16_t sampling_rate;	//unity = Hz
 
-
-char acc_range;
-char gyro_range;
+	char acc_range;
+	char gyro_range;
 } accelgyro;
 
 #define ACCELGYRO_SET_ACCELRANGE(value)                                 \
@@ -42,32 +41,27 @@ char gyro_range;
     else { accelgyro.gyro_range = value; }                              \
 }
 
-void 
-accelgyro_default_conf(void)
+void accelgyro_default_conf(void)
 {
-    ACCELGYRO_SET_ACCELRANGE(ACC_4G);
-    ACCELGYRO_SET_GYRORANGE(GYRO_500);
-    accelgyro.sampling_rate = 10;
+	ACCELGYRO_SET_ACCELRANGE(ACC_4G);
+	ACCELGYRO_SET_GYRORANGE(GYRO_500);
+	accelgyro.sampling_rate = 10;
 }
 
-void
-accelgyro_setup(void)
+void accelgyro_setup(void)
 {
-    //Join I2C
-    Wire.begin();
-    accelgyro.mpu.initialize();
+	//Join I2C
+	Wire.begin();
+	accelgyro.mpu.initialize();
 }
 
-void
-accelgyro_get(void)
+void accelgyro_get(void)
 {
-    accelgyro.mpu.getMotion6(&accelgyro.ax,
-                             &accelgyro.ay,
-                             &accelgyro.az,
-                             &accelgyro.gx,
-                             &accelgyro.gy,
-                             &accelgyro.gz);
-    
+	accelgyro.mpu.getMotion6(&accelgyro.ax,
+				 &accelgyro.ay,
+				 &accelgyro.az,
+				 &accelgyro.gx, &accelgyro.gy, &accelgyro.gz);
+
 }
 
 #endif
