@@ -116,11 +116,12 @@ struct FlashMem {
 
 void flash_write_meta_data()
 {
-	flashMem.dataflash.pageToBuffer(0, 0);
+//	flashMem.dataflash.pageToBuffer(0, 0);
 	flashMem.dataflash.bufferWrite(0, 0);
 	FLASH_WRITE_INT16(FLASH_SYNC);
 	FLASH_WRITE_INT16(flashMem.n);
-	FLASH_WRITE_INT16(flashMem.sampling) SPI.transfer(flashMem.acce_scale);
+	FLASH_WRITE_INT16(flashMem.sampling);
+	SPI.transfer(flashMem.acce_scale);
 	SPI.transfer(flashMem.gyro_scale);
 	//added
 	SPI.transfer(flashMem.Hour);
@@ -232,7 +233,7 @@ void flash_write_mode_start(void)
 	flashMem.Year = 114;	// the Year minus 1900 
 	//
 	flash_erase();
-	flashMem.dataflash.bufferWrite(0, 0);
+//	flashMem.dataflash.bufferWrite(0, 0);
 	flashMem.offset = 0;
 }
 
@@ -243,7 +244,6 @@ void flash_write_buffer(void)
 	flashMem.n += (flashMem.offset / 12);
 	flashMem.offset = 0;
 	flash_write_meta_data();
-	flashMem.dataflash.bufferWrite(0, 0);
 }
 
 void flash_write_accelgyro(void)
@@ -262,15 +262,17 @@ void flash_write_accelgyro(void)
 
 void flash_write_botanical(void)
 {
-	int tmp_light_value = event.light;
-	FLASH_WRITE_INT16(light_value);
+	tsl.getEvent(&event);
 	temperature = tempsensor.readTempC();
+	flashMem.dataflash.bufferWrite(0, flashMem.offset);
+	FLASH_WRITE_INT16((uint16_t) event.light);
 	SPI.transfer(temperature);
 	//dummy value to get even numb of bits
-	SPI.transfer(temperature);
+	SPI.transfer(0);
 	flashMem.offset += 4;
 	if (flashMem.offset == 528)
 		flash_write_buffer();
+	flashMem.dataflash.disable();
 }
 
 void read_botanical(void)

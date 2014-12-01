@@ -60,6 +60,12 @@ Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
 
 #define MY_ID 0
 
+#define WRITE_LED_PIN 4
+#define SWITCH_PIN 8
+
+#define FLASH_CS_PIN 5
+
+
 char frame_type;
 
 /* operating modes */
@@ -81,17 +87,19 @@ void startupDelay()
 		delay(3000 - startupTime);
 }
 
-//watchdog timer routine
-ISR(WDT_vect)
-{
+void watchdog_handler();
 
+//watchdog timer routine
+// ISR_NOBLOCK - handler runs with interrupts enabled.
+ISR(WDT_vect, ISR_NOBLOCK)
+{
+	watchdog_handler();
 }
 
 void setup(void)
 {
-	pinMode(4, OUTPUT);
-	pinMode(5, OUTPUT);
-	pinMode(8, INPUT);
+	pinMode(WRITE_LED_PIN, OUTPUT);
+	pinMode(SWITCH_PIN, INPUT);
 
 	button = 0;
 	sf_setup();
@@ -127,6 +135,12 @@ void setup(void)
 	run_mode = STANDBY_MODE;
 	is_write_mode = 0;
 
+	/* To conserve power, disable ADC and analog comparator */
+	ADCSRA &= ~(1 << ADEN);	//Disable ADC
+	ACSR = (1 << ACD);	//Disable the analog comparator
+	/* Setup WD to fire every 4 seconds */
+	watchdog_setup(6);
+	watchdog_int_enable();
 }
 
 void mode_handler(void)
@@ -169,7 +183,6 @@ void mode_handler(void)
 			//serial_print_str("b ");*/
 			print_botanical(CHAR_MODE);
 			break;
-			//    
 		case WRITE_MODE:
 			if (!is_write_mode) {
 				is_write_mode = 1;
@@ -183,19 +196,9 @@ void mode_handler(void)
 			if (!is_write_mode) {
 				is_write_mode = 1;
 				digitalWrite(4, 1);
-				delay(300);
 				flash_write_mode_start();
-				digitalWrite(4, 0);
-				ADCSRA &= ~(1 << ADEN);	//Disable ADC
-				ACSR = (1 << ACD);	//Disable the analog comparator
-				setup_watchdog(8);
 			}
-			Serial.flush();
-			set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-			sleep_enable();
-			sleep_cpu();
-			sleep_disable();
-			flash_write_botanical();
+			/* Nothing to do, writes occur on WD interrupts  */
 			break;
 		}
 		if (!is_write_mode) {
@@ -309,14 +312,39 @@ void frame_handler(void)
 	}
 }
 
+int usb_vbus_connected()
+{
+	return USBSTA & _BV(VBUS);
+}
+
+
+void watchdog_handler()
+{
+	Serial1.println("+WD");
+	if (run_mode == WRITE_BOTANICAL_MODE) {
+		if (!is_write_mode) {
+			is_write_mode = 1;
+			digitalWrite(4, 1);
+			delay(300);
+			flash_write_mode_start();
+			digitalWrite(4, 0);
+		}
+		flash_write_botanical();
+	}
+	Serial1.println("-WD");
+}
+
 int loop_counter = 0;
 
+
+#if 1
 void loop()
 {
-	//loop_counter++;
-	//if(loop_counter == 100000) loop_counter = 0;
-	//if(loop_counter == 0) Serial.println("loop");
-	digitalWrite(5, 0);
+	loop_counter++;
+
+	Serial1.print("loop=");
+	Serial1.println(loop_counter);
+
 	if (digitalRead(8) == HIGH && button == 0) {
 		button = 1;
 		//frame_type = WRITE_MODE_FRAME;
@@ -327,15 +355,23 @@ void loop()
 		button = 0;
 		frame_type = QUIT_FRAME;
 	} else {
-		frame_type = sf_getFrame();
-	}
-	if (frame_type) {
-		if (is_write_mode) {
-			is_write_mode = 0;
-			digitalWrite(4, 0);
-			flash_write_buffer();
+		if (usb_vbus_connected()) {
+			Serial1.println("VBUS connected");
+			Serial1.flush();
+			frame_type = sf_getFrame();
+		} else {
+			Serial1.println("VBUS not connected, sleeping");
+			Serial1.flush();
+			set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+			sleep_enable();
+			sleep_cpu();
+			sleep_disable();
+			Serial1.println("Back from sleep");
+			Serial1.flush();
 		}
-		frame_handler();
 	}
+	frame_handler();
 	mode_handler();
 }
+#endif
+
