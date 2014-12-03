@@ -64,6 +64,8 @@ Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
 #define SWITCH_PIN 8
 
 #define FLASH_CS_PIN 5
+#define FLASH_RESET_PIN 6
+#define FLASH_WP_PIN 7
 
 
 char frame_type;
@@ -115,7 +117,7 @@ void setup(void)
 #endif
 	startupDelay();
 
-	if (flash_setup()) {
+	if (flash_setup(FLASH_CS_PIN, FLASH_RESET_PIN, FLASH_WP_PIN)) {
 		flashMem.gyro_scale = GYRO_500;
 		ACCELGYRO_SET_GYRORANGE(GYRO_500);
 		flashMem.acce_scale = ACC_4G;
@@ -193,11 +195,6 @@ void mode_handler(void)
 			break;
 
 		case WRITE_BOTANICAL_MODE:
-			if (!is_write_mode) {
-				is_write_mode = 1;
-				digitalWrite(4, 1);
-				flash_write_mode_start();
-			}
 			/* Nothing to do, writes occur on WD interrupts  */
 			break;
 		}
@@ -342,9 +339,6 @@ void loop()
 {
 	loop_counter++;
 
-	Serial1.print("loop=");
-	Serial1.println(loop_counter);
-
 	if (digitalRead(8) == HIGH && button == 0) {
 		button = 1;
 		//frame_type = WRITE_MODE_FRAME;
@@ -356,8 +350,9 @@ void loop()
 		frame_type = QUIT_FRAME;
 	} else {
 		if (usb_vbus_connected()) {
-			Serial1.println("VBUS connected");
+			Serial1.print(".");
 			Serial1.flush();
+			delay(100);
 			frame_type = sf_getFrame();
 		} else {
 			Serial1.println("VBUS not connected, sleeping");

@@ -7,6 +7,8 @@
 
 #include<string.h>
 
+//#define DEBUG_FLASH
+
 #define CHAR_MODE 0
 #define BYTE_MODE 1
 
@@ -80,7 +82,7 @@ void print_botanical(int mode)
 	serial_print_char('\n');
 }
 
-#define FLASH_SYNC 2765
+#define FLASH_MAGIC 2765
 
 struct FlashMem {
 	DataFlash dataflash;
@@ -100,37 +102,92 @@ struct FlashMem {
 	byte Year;		// the Year minus 1900  
 } flashMem;
 
-#define FLASH_READ_INT16(value)         \
-{                                       \
-    value = 0;                          \
-    value = SPI.transfer(0xff);         \
-    value = value << 8;                 \
-    value += SPI.transfer(0xff);        \
+
+#ifdef DEBUG_FLASH
+inline uint16_t FLASH_READ_INT16(void)
+{
+	uint16_t value;
+	value = SPI.transfer(0xff);
+	value = value << 8;
+	value += SPI.transfer(0xff);
+	Serial1.print(">>");
+	Serial1.println(value);
+	Serial1.flush();
+	return value;
 }
 
-#define FLASH_WRITE_INT16(value)        \
-{                                       \
-    SPI.transfer((value >> 8) & 0xff);  \
-    SPI.transfer(value & 0xff);         \
+inline void FLASH_WRITE_INT16(uint16_t value)
+{
+	Serial1.print("<<");
+	Serial1.println(value);
+	Serial1.flush();
+	SPI.transfer((value >> 8) & 0xff);
+	SPI.transfer(value & 0xff);
 }
+
+inline uint8_t FLASH_READ_INT8(void)
+{
+	uint8_t value;
+	value = SPI.transfer(0xff);
+	Serial1.print(">");
+	Serial1.println(value);
+	Serial1.flush();
+}
+
+inline void FLASH_WRITE_INT8(uint8_t value)
+{
+	Serial1.print("<<");
+	Serial1.println(value);
+	Serial1.flush();
+	SPI.transfer((uint8_t) value);
+}
+
+#else 
+inline uint16_t FLASH_READ_INT16(void)
+{
+	uint16_t value;
+	value = SPI.transfer(0xff);
+	value = value << 8;
+	value += SPI.transfer(0xff);
+	return value;
+}
+
+inline void FLASH_WRITE_INT16(uint16_t value)
+{
+	SPI.transfer((value >> 8) & 0xff);
+	SPI.transfer(value & 0xff);
+}
+
+inline uint8_t FLASH_READ_INT8(void)
+{
+	uint8_t value;
+	value = SPI.transfer(0xff);
+}
+
+inline void FLASH_WRITE_INT8(uint8_t value)
+{
+	SPI.transfer((uint8_t) value);
+}
+#endif
+
 
 void flash_write_meta_data()
 {
 //	flashMem.dataflash.pageToBuffer(0, 0);
 	flashMem.dataflash.bufferWrite(0, 0);
-	FLASH_WRITE_INT16(FLASH_SYNC);
+	FLASH_WRITE_INT16(FLASH_MAGIC);
 	FLASH_WRITE_INT16(flashMem.n);
 	FLASH_WRITE_INT16(flashMem.sampling);
-	SPI.transfer(flashMem.acce_scale);
-	SPI.transfer(flashMem.gyro_scale);
+	FLASH_WRITE_INT8(flashMem.acce_scale);
+	FLASH_WRITE_INT8(flashMem.gyro_scale);
 	//added
-	SPI.transfer(flashMem.Hour);
-	SPI.transfer(flashMem.Minute);
-	SPI.transfer(flashMem.Second);
-	SPI.transfer(flashMem.Day);
-	SPI.transfer(flashMem.DayofWeek);	// Sunday is day 0 
-	SPI.transfer(flashMem.Month);	// Jan is month 0
-	SPI.transfer(flashMem.Year);	// the Year minus 1900 
+	FLASH_WRITE_INT8(flashMem.Hour);
+	FLASH_WRITE_INT8(flashMem.Minute);
+	FLASH_WRITE_INT8(flashMem.Second);
+	FLASH_WRITE_INT8(flashMem.Day);
+	FLASH_WRITE_INT8(flashMem.DayofWeek);	// Sunday is day 0 
+	FLASH_WRITE_INT8(flashMem.Month);	// Jan is month 0
+	FLASH_WRITE_INT8(flashMem.Year);	// the Year minus 1900 
 	flashMem.dataflash.bufferToPage(0, 0);
 }
 
@@ -138,41 +195,42 @@ void flash_write_config(char acce_scale, char gyro_scale, int sampling)
 {
 	flashMem.dataflash.pageToBuffer(0, 0);
 	flashMem.dataflash.bufferWrite(0, 8);
-	FLASH_WRITE_INT16(FLASH_SYNC);
-	FLASH_WRITE_INT16(sampling) SPI.transfer(acce_scale);
-	SPI.transfer(gyro_scale);
+	FLASH_WRITE_INT16(FLASH_MAGIC);
+	FLASH_WRITE_INT16(sampling);
+	FLASH_WRITE_INT8(acce_scale);
+	FLASH_WRITE_INT8(gyro_scale);
 	//added
-	SPI.transfer(flashMem.Hour);
-	SPI.transfer(flashMem.Minute);
-	SPI.transfer(flashMem.Second);
-	SPI.transfer(flashMem.Day);
-	SPI.transfer(flashMem.DayofWeek);	// Sunday is day 0 
-	SPI.transfer(flashMem.Month);	// Jan is month 0
-	SPI.transfer(flashMem.Year);	// the Year minus 1900 
+	FLASH_WRITE_INT8(flashMem.Hour);
+	FLASH_WRITE_INT8(flashMem.Minute);
+	FLASH_WRITE_INT8(flashMem.Second);
+	FLASH_WRITE_INT8(flashMem.Day);
+	FLASH_WRITE_INT8(flashMem.DayofWeek);	// Sunday is day 0
+	FLASH_WRITE_INT8(flashMem.Month);	// Jan is month 0
+	FLASH_WRITE_INT8(flashMem.Year);	// the Year minus 1900
 	flashMem.dataflash.bufferToPage(0, 0);
 }
 
 int flash_read_meta_data(void)
 {
-	int16_t synch_value;
+	int16_t magic_value;
 	flashMem.dataflash.pageToBuffer(0, 0);
 	flashMem.dataflash.bufferRead(0, 0);
 
-	FLASH_READ_INT16(synch_value);
-	FLASH_READ_INT16(flashMem.n);
-	FLASH_READ_INT16(flashMem.sampling);
-	flashMem.acce_scale = SPI.transfer(0xff);
-	flashMem.gyro_scale = SPI.transfer(0xff);
+	magic_value = FLASH_READ_INT16();
+	flashMem.n = FLASH_READ_INT16();
+	flashMem.sampling = FLASH_READ_INT16();
+	flashMem.acce_scale = FLASH_READ_INT8();
+	flashMem.gyro_scale = FLASH_READ_INT8();
 	//added
-	flashMem.Hour = SPI.transfer(0xff);
-	flashMem.Minute = SPI.transfer(0xff);
-	flashMem.Second = SPI.transfer(0xff);
-	flashMem.Day = SPI.transfer(0xff);
-	flashMem.DayofWeek = SPI.transfer(0xff);
-	flashMem.Month = SPI.transfer(0xff);
-	flashMem.Year = SPI.transfer(0xff);
-	//flashMem.Year= SPI.transfer(0xff);
-	if (synch_value != FLASH_SYNC)
+	flashMem.Hour = FLASH_READ_INT8();
+	flashMem.Minute = FLASH_READ_INT8();
+	flashMem.Second = FLASH_READ_INT8();
+	flashMem.Day = FLASH_READ_INT8();
+	flashMem.DayofWeek = FLASH_READ_INT8();
+	flashMem.Month = FLASH_READ_INT8();
+	flashMem.Year = FLASH_READ_INT8();
+	//flashMem.Year= FLASH_READ_INT8();
+	if (magic_value != FLASH_MAGIC)
 		return 1;
 	else
 		return 0;
@@ -180,25 +238,25 @@ int flash_read_meta_data(void)
 
 int flash_read_config(char *acce_scale, char *gyro_scale, int *sampling)
 {
-	int16_t synch_value;
+	int16_t magic_value;
 	flashMem.dataflash.pageToBuffer(0, 0);
 	flashMem.dataflash.bufferRead(0, 8);
-	FLASH_READ_INT16(synch_value);
-	FLASH_READ_INT16(*sampling) * acce_scale = SPI.transfer(0xff);
-	*gyro_scale = SPI.transfer(0xff);
+	magic_value = FLASH_READ_INT16();
+	*sampling = FLASH_READ_INT16();
+	*acce_scale = FLASH_READ_INT8();
+	*gyro_scale = FLASH_READ_INT8();
 	flashMem.dataflash.bufferToPage(0, 0);
-	if (synch_value != FLASH_SYNC)
+	if (magic_value != FLASH_MAGIC)
 		return 1;
 	else
 		return 0;
 }
 
-int flash_setup(void)
+int flash_setup(int cs_pin, int reset_pin, int wp_pin)
 {
-	int16_t synch_value;
 	//Start SPI for the external flash
 	SPI.begin();
-	flashMem.dataflash.setup(5, 6, 7);
+	flashMem.dataflash.setup(cs_pin, reset_pin, wp_pin);
 	delay(10);
 	flashMem.dataflash.autoErase();
 
@@ -266,9 +324,9 @@ void flash_write_botanical(void)
 	temperature = tempsensor.readTempC();
 	flashMem.dataflash.bufferWrite(0, flashMem.offset);
 	FLASH_WRITE_INT16((uint16_t) event.light);
-	SPI.transfer(temperature);
+	FLASH_WRITE_INT8(temperature);
 	//dummy value to get even numb of bits
-	SPI.transfer(0);
+	FLASH_WRITE_INT8(0);
 	flashMem.offset += 4;
 	if (flashMem.offset == 528)
 		flash_write_buffer();
@@ -277,18 +335,19 @@ void flash_write_botanical(void)
 
 void read_botanical(void)
 {
-	FLASH_READ_INT16(light_value);
-	temperature = SPI.transfer(0xff);
+	light_value = FLASH_READ_INT16();
+	temperature = FLASH_READ_INT8();
+	FLASH_READ_INT8();
 }
 
 void read_accelgyro(void)
 {
-	FLASH_READ_INT16(accelgyro.ax);
-	FLASH_READ_INT16(accelgyro.ay);
-	FLASH_READ_INT16(accelgyro.az);
-	FLASH_READ_INT16(accelgyro.gx);
-	FLASH_READ_INT16(accelgyro.gy);
-	FLASH_READ_INT16(accelgyro.gz);
+	accelgyro.ax = FLASH_READ_INT16();
+	accelgyro.ay = FLASH_READ_INT16();
+	accelgyro.az = FLASH_READ_INT16();
+	accelgyro.gx = FLASH_READ_INT16();
+	accelgyro.gy = FLASH_READ_INT16();
+	accelgyro.gz = FLASH_READ_INT16();
 }
 
 void flash_read_accelgyro(int mode)
@@ -384,7 +443,7 @@ void flash_read_botanical(int mode)
 	for (i = 1; i <= flashMem.page; i++) {
 		flashMem.dataflash.pageToBuffer(i, 0);
 		flashMem.dataflash.bufferRead(0, 0);
-		for (j = 0; j < 528; j += 12) {
+		for (j = 0; j < 528; j += 4) {
 			read_botanical();
 			if (mode == CHAR_MODE)
 				serial_print_str("b ");
